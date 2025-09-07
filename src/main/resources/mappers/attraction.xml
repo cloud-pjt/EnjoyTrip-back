@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+	
+<mapper namespace="com.ssafy.trip.attraction.model.dao.AttractionDao">
+
+	<resultMap type="AreaCode" id="AreaCode">
+		<result column="sido_code" property="sidoCode"/>
+		<result column="sido_name" property="sidoName"/>
+		<result column="img" property="sidoImg"/>
+		<result column="gugun_code" property="gugunCode"/>
+		<result column="gugun_name" property="gugunName"/>
+	</resultMap>
+	
+	<resultMap type="ContentType" id="ContentType">
+		<result column="content_type_id" property="contentTypeId"/>
+		<result column="content_type_name" property="contentTypeName"/>
+	</resultMap>
+	
+	<resultMap type="AttractionDescription" id="AttractionDescription">
+		<result column="content_id" property="contentId"/>
+		<result column="homepage" property="homepage"/>
+		<result column="overview" property="overview"/>
+	</resultMap>
+	
+	<resultMap type="Attraction" id="Attraction">
+		<result column="content_id" property="contentId"/>
+		<result column="content_type_id" property="contentTypeId"/>
+		<result column="title" property="title"/>
+		<result column="addr1" property="addr1"/>
+		<result column="addr2" property="addr2"/>
+		<result column="zipcode" property="zipcode"/>
+		<result column="tel" property="tel"/>
+		<result column="first_image" property="firstImage"/>
+		<result column="first_image2" property="firstImage2"/>
+		<result column="readcount" property="readcount"/>
+		<result column="sido_code" property="sidoCode"/>
+		<result column="gugun_code" property="gugunCode"/>
+		<result column="latitude" property="latitude"/>
+		<result column="longitude" property="longitude"/>
+		<result column="mlevel" property="mlevel"/>
+	</resultMap>
+	
+	<resultMap type="SearchCondition" id="SearchCondition">
+		<result column="sido_code" property="sidoCode"/>
+		<result column="gugun_code" property="gugunCode"/>
+		<result column="content_type_id" property="contentTypeId"/>
+		<result column="word" property="word"/>
+	</resultMap>
+
+	<!--  여행 계획 (TripPlan) Map  -->
+	<resultMap type="tripPlan" id="plan">
+		<result column="title" property="title"/>
+		<result column="plan_id" property="planId"/>
+		<result column="user_id" property="userId"/>
+		<result column="user_email" property="userEmail"/>
+		<result column="trip_start_date" property="startDate"/>
+		<result column="trip_end_date" property="endDate"/>
+		<result column="public" property="publicStatus"/>
+	</resultMap>
+
+	<!--  여행 참여 맴버 Map	-->
+	<resultMap type="user" id="user">
+		<result column="user_id" property="userId"/>
+		<result column="user_email" property="userEmail"/>
+		<result column="user_name" property="userName"/>
+		<result column="user_img" property="userImg"/>
+	</resultMap>
+
+	<select id="getSido" resultMap="AreaCode">
+		SELECT	sido_code, sido_name, img
+		FROM	sido
+	</select>
+	
+	<select id="getGugun" parameterType="int" resultMap="AreaCode">
+		SELECT	g.gugun_code, g.gugun_name, g.sido_code, s.sido_name
+		FROM	gugun g
+		JOIN	sido s ON g.sido_code=s.sido_code
+		WHERE	g.sido_code=#{areaCode}
+	</select>
+	
+	<select id="listAttraction" parameterType="SearchCondition" resultMap="Attraction">
+		SELECT	content_id, content_type_id, title, addr1, zipcode, tel, first_image, sido_code, gugun_code, latitude, longitude, mlevel
+		FROM	attraction_info
+		WHERE	content_id in (SELECT	content_id
+								FROM	attraction_info
+								<where>
+									<if test="sidoCode != 0"> and sido_code=${sidoCode} </if>
+									<if test="gugunCode != 0"> and gugun_code=${gugunCode}</if>
+									<if test="contentTypeId != 0"> and content_type_id=${contentTypeId}</if>
+									<if test="word != null"> and title like concat('%', #{word}, '%')</if>
+								</where>)
+	</select>
+	
+	<select id="detailAttraction" parameterType="int" resultMap="AttractionDescription">
+		SELECT	content_id, homepage, overview
+		FROM	attraction_description
+		WHERE	content_id=#{contentId}
+	</select>
+	
+	<select id="getContentType" resultMap="ContentType">
+		SELECT	content_type_id, content_type_name
+		FROM	attraction_content_type
+	</select>
+
+	<!--  여행 계획 insert  -->
+	<insert id="registTripPlan" parameterType="tripPlan" useGeneratedKeys="true" keyProperty="planId">
+		insert into trip_plan (title, user_id, trip_start_date, trip_end_date, public)
+		values (#{title}, #{userId}, #{startDate}, #{endDate}, #{publicStatus})
+	</insert>
+
+	<!--  여행 계획 update -->
+	<update id="updateTripPlan" parameterType="tripPlan">
+		update trip_plan
+		set title = #{title}, trip_start_date = #{startDate}, trip_end_date = #{endDate}, public = #{publicStatus}
+		where plan_id = #{planId}
+	</update>
+
+	<!--  여행 계획 delete -->
+	<delete id="deleteTripPlan" parameterType="int">
+		delete from trip_plan
+		where plan_id = #{planId}
+	</delete>
+
+	<!--  여행 계획(public) list -->
+	<select id="listPublicTripPlan" resultMap="plan">
+		select p.title, p.plan_id, p.user_id, m.user_email, p.trip_start_date, p.trip_end_date, p.public
+		from trip_plan p left join users m on p.user_id = m.user_id
+		where p.public = true;
+	</select>
+
+	<!--  여행 계획(user) list -->
+	<select id="listUserTripPlan" parameterType="int" resultMap="plan">
+		select p.title, p.plan_id, p.user_id, m.user_email, p.trip_start_date, p.trip_end_date, p.public
+		from trip_plan p left join users m on p.user_id = m.user_id
+		where p.user_id = #{userId}
+	</select>
+
+	<!--  여행세부계획 insert	-->
+	<insert id="registTripAttraction" parameterType="tripAttraction">
+		insert into trip_attraction (plan_id, content_id, visit_date)
+		values (#{planId}, #{contentId}, #{visitDate})
+	</insert>
+
+	<!--  여행세부계획 delete	-->
+	<delete id="deleteTripAttraction" parameterType="TripAttraction">
+		delete from trip_attraction
+		where plan_id = #{planId} and content_id = #{contentId}
+	</delete>
+
+	<!--  여행세부계획 List	-->
+	<select id="listTripAttraction" parameterType="int" resultMap="Attraction">
+		select i.content_id, i.content_type_id, i.title, i.addr1, i.zipcode, i.tel, i.first_image, i.sido_code, i.gugun_code, i.latitude, i.longitude, i.mlevel
+		from trip_plan p
+		    left join trip_attraction a on p.plan_id = a.plan_id
+			left join attraction_info i on a.content_id = i.content_id
+		where p.plan_id = #{planId}
+	</select>
+
+	<!--  여행맴버 insert	-->
+	<insert id="registTripMember" parameterType="tripMember">
+		insert into trip_member (plan_id, user_id)
+		values (#{planId}, #{userId})
+	</insert>
+
+	<!--  여행맴버 delete	-->
+	<delete id="deleteTripMember" parameterType="tripMember">
+		delete from trip_member
+		where plan_id = #{planId} and user_id = #{userId}
+	</delete>
+
+	<!--  여행 참여 맴버 list	-->
+	<select id="listTripMember" parameterType="int" resultMap="user">
+		select u.user_id, u.user_email, u.user_name, u.user_img
+		from trip_plan p
+			 left join trip_member m on p.plan_id = m.plan_id
+			 left join users u on m.user_id = u.user_id
+	</select>
+</mapper>
