@@ -12,9 +12,17 @@
 	<artifactId>enjoytrip_03</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>enjoytrip_03</name>
+	<packaging>jar</packaging>
 	<description>Demo project for Spring Boot</description>
 	<properties>
 		<java.version>1.8</java.version>
+		<!-- jar 배포용 -->
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
+		<!--main 함수가 있는 class 경로-->
+		<start-class>com.ssafy.trip.Enjoytrip03Application</start-class>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -123,11 +131,30 @@
 
 	<build>
 		<plugins>
+			<!-- Java 8 바이트코드로 컴파일 -->
+			<plugin>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<release>8</release>
+				</configuration>
+			</plugin>
+			<!-- 스프링부트 실행 JAR 생성 -->
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<mainClass>com.ssafy.trip.Enjoytrip03Application</mainClass>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>repackage</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
+
 	</build>
 
 </project>
