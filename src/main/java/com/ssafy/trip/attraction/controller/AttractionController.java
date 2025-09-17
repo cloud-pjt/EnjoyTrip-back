@@ -18,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestController
-@RequestMapping("/attractionapi")
+@RequestMapping("/api/attractionapi")
 @Api(tags = {"관광지 컨트롤러 API V1"})
 public class AttractionController {
 
