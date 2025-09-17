@@ -25,7 +25,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 @RestController
-@RequestMapping("/board")
+@RequestMapping("/api/board")
 @Api(tags = {"게시판 컨트롤러 API V1"})
 @Slf4j
 public class BoardController {
