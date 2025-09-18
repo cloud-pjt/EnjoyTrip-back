@@ -63,7 +63,7 @@ jobs:
     - name: Build, tag, and push image to Amazon ECR
       run: |
         docker build -t enjoy-back:${{steps.current-time.outputs.formattedTime}} . 
-        docker tag test:${{steps.current-time.outputs.formattedTime}} public.ecr.aws/u9j3q0k2/enjoy-back:${{steps.current-time.outputs.formattedTime}} 
+        docker tag enjoy-back:${{steps.current-time.outputs.formattedTime}} public.ecr.aws/u9j3q0k2/enjoy-back:${{steps.current-time.outputs.formattedTime}} 
         docker push public.ecr.aws/u9j3q0k2/enjoy-back:${{steps.current-time.outputs.formattedTime}}
 
 
