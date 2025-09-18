@@ -9,8 +9,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      ECR_REGISTRY: 868422696413.dkr.ecr.ap-northeast-2.amazonaws.com
-      ECR_REPOSITORY: test
+      ECR_REGISTRY: public.ecr.aws/u9j3q0k2
+      ECR_REPOSITORY: enjoy-back
 
     steps:
     - uses: actions/checkout@v4
@@ -52,14 +52,19 @@ jobs:
 
     - name: Login to Amazon ECR
       id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      uses: aws-actions/amazon-ecr-login@v2
+      with:
+        registry-type: public
+      env:
+        AWS_DEFAULT_REGION: us-east-1
+        AWS_REGION: us-east-1
 
     # 6. Docker 빌드 & Push
     - name: Build, tag, and push image to Amazon ECR
       run: |
-        docker build -t test:${{steps.current-time.outputs.formattedTime}} . 
-        docker tag test:${{steps.current-time.outputs.formattedTime}} 868422696413.dkr.ecr.ap-northeast-2.amazonaws.com/test:${{steps.current-time.outputs.formattedTime}} 
-        docker push 868422696413.dkr.ecr.ap-northeast-2.amazonaws.com/test:${{steps.current-time.outputs.formattedTime}}
+        docker build -t enjoy-back:${{steps.current-time.outputs.formattedTime}} . 
+        docker tag test:${{steps.current-time.outputs.formattedTime}} public.ecr.aws/u9j3q0k2/enjoy-back:${{steps.current-time.outputs.formattedTime}} 
+        docker push public.ecr.aws/u9j3q0k2/enjoy-back:${{steps.current-time.outputs.formattedTime}}
 
 
     - name: Checkout manifests repo
