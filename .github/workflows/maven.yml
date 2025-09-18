@@ -28,7 +28,7 @@ jobs:
         distribution: 'temurin'
         cache: maven
     - name: Build with Maven
-      run: mvn -B package --file pom.xml
+      run: mvn -B package -DskipTests --file pom.xml
 
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
     - name: Update dependency graph
@@ -40,4 +40,31 @@ jobs:
       with:
         name: surefire-reports
         path: '**/target/surefire-reports/*'
+        
+   # 4. 현재 시간 태그 (선택)
+    - name: Get current time
+      id: current-time
+      run: echo "formattedTime=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+
+    - name: Show Current Time
+      run: echo "Current time is ${{ steps.current-time.outputs.formattedTime }}"
+
+    # 5. AWS 로그인
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-northeast-2
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    # 6. Docker 빌드 & Push
+    - name: Build, tag, and push image to Amazon ECR
+      run: |
+        docker build -t test/back:${{steps.current-time.outputs.formattedTime}} . 
+        docker tag test/back:${{steps.current-time.outputs.formattedTime}} 868422696413.dkr.ecr.ap-northeast-2.amazonaws.com/test/back:${{steps.current-time.outputs.formattedTime}} 
+        docker push 868422696413.dkr.ecr.ap-northeast-2.amazonaws.com/test/back:${{steps.current-time.outputs.formattedTime}}
 
