@@ -1,7 +1,7 @@
 # Web ContextRootPath and PortNumber Settings
 # server.servlet.context-path=/enjoytrip
 server:
-  port: 80
+  port: 8080
 
 # DataBase Settings : hikariCP : https://github.com/brettwooldridge/HikariCP
 spring:
