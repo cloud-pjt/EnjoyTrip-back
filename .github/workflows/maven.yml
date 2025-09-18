@@ -65,7 +65,7 @@ jobs:
     - name: Checkout manifests repo
       uses: actions/checkout@v4
       with:
-        repository: Dhchung12/cloud_project
+        repository: cloud-pjt/enjoy-back-cd
         token: ${{ secrets.GH_PAT }}
 
     # backend repository로 가서 enjoy-back.yaml의 image: 부분을 현재 빌드하는 image로 교체
