@@ -31,14 +31,19 @@ jobs:
         path: '**/target/surefire-reports/*'
         
    # 4. 현재 시간 태그 (선택)
+#    - name: Get current time
+#      id: current-time
+#      run: echo "formattedTime=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+
     - name: Get current time
       id: current-time
-      run: echo "formattedTime=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+      run: echo "IMAGE_TAG=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV
+
       
 
     - name: Show Current Time
-      run: echo "Current time is ${{ steps.current-time.outputs.formattedTime }}"
-           echo "IMAGE_TAG=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV
+#      run: echo "Current time is ${{ steps.current-time.outputs.formattedTime }}"
+      run: echo "IMAGE_TAG=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV
 
 
     # 5. AWS 로그인
