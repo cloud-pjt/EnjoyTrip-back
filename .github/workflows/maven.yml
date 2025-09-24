@@ -60,7 +60,7 @@ jobs:
     - name: Checkout manifests repo
       uses: actions/checkout@v4
       with:
-        repository: cloud-pjt/enjoy-back-cd
+        repository: cloud-pjt/enjoy-cd
         token: ${{ secrets.GH_PAT }}
         
       # kustomize 설치 (edit set image 사용)
