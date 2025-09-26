@@ -77,11 +77,13 @@ jobs:
         run: |
           git config user.name "sdpup"
           git config user.email "epflswu12@gmail.com"
-          if ! git diff --quiet; then
-            git add .
+          if ! git diff --quiet backend/; then
+            git add backend/  # backend 폴더만 추가
             git commit -m "🔧 Update DEV backend image to ${{ env.IMAGE_TAG }}"
             git push
             echo "✅ DEV 매니페스트 업데이트 완료"
+          else
+            echo "No backend changes to commit."
           fi
       
       - name: Display next steps
@@ -189,8 +191,8 @@ jobs:
           IMAGE_TAG=${{ steps.tag.outputs.IMAGE_TAG }}
           git config user.name "sdpup"
           git config user.email "epflswu12@gmail.com"
-          if ! git diff --quiet; then
-            git add .
+          if ! git diff --quiet backend/; then
+            git add backend/
             git commit -m "🚀 Deploy optimized backend $IMAGE_TAG to PROD"
             git push
             echo "✅ PROD 매니페스트 업데이트 완료"
