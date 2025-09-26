@@ -60,6 +60,7 @@ jobs:
         with:
           repository: cloud-pjt/enjoy-cd
           token: ${{ secrets.GH_PAT }}
+          ref: develop
       
       - name: Install kustomize
         run: |
@@ -80,7 +81,7 @@ jobs:
           if ! git diff --quiet backend/; then
             git add backend/  # backend 폴더만 추가
             git commit -m "🔧 Update DEV backend image to ${{ env.IMAGE_TAG }}"
-            git push
+            git push origin develop
             echo "✅ DEV 매니페스트 업데이트 완료"
           else
             echo "No backend changes to commit."
