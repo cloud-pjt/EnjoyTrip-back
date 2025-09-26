@@ -1,8 +1,7 @@
-name: Java CI with Maven
-
+name: Build and Push Java Backend to ECR
 on:
   push:
-    branches: [ "main" ]         # ➜ dev에 자동 반영
+    branches: [ "main" ]
   workflow_dispatch:
     inputs:
       environment:
@@ -11,90 +10,196 @@ on:
         default: "prod"
         type: choice
         options: [ "prod" ]
+      image_tag:
+        description: "DEV 이미지 태그 (비워두면 최신 태그 자동 선택)"
+        required: false
+        type: string
 
 jobs:
-  build:
+  build-dev:
+    # DEV 환경: 빠른 빌드용 Dockerfile
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     env:
       ECR_REGISTRY: 255260635764.dkr.ecr.ap-northeast-2.amazonaws.com
       ECR_REPOSITORY: enjoy-back
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up JDK 11
-      uses: actions/setup-java@v4
-      with:
-        java-version: '11'
-        distribution: 'temurin'
-        cache: maven
-    - name: Build with Maven
-      run: mvn -B package -DskipTests --file pom.xml
+      - name: Checkout source
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+      
+      - name: Get current time (KST)
+        run: echo "IMAGE_TAG=$(TZ='Asia/Seoul' date +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+      
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+      
+      # DEV용 Dockerfile.dev 사용 (빠른 빌드)
+      - name: Build and push DEV image
+        run: |
+          docker build -f Dockerfile.dev -t $ECR_REPOSITORY:${{ env.IMAGE_TAG }} .
+          docker tag $ECR_REPOSITORY:${{ env.IMAGE_TAG }} $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
+          echo "✅ DEV 이미지 업로드 완료: $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}"
+      
+      - name: Checkout manifests repo
+        uses: actions/checkout@v4
+        with:
+          repository: cloud-pjt/enjoy-cd
+          token: ${{ secrets.GH_PAT }}
+      
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+      
+      - name: Update DEV kustomization
+        run: |
+          cd backend/overlays/dev
+          kustomize edit set image $ECR_REGISTRY/$ECR_REPOSITORY=$ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
+          echo "📝 DEV kustomization 업데이트 완료"
+          cat kustomization.yaml
+      
+      - name: Commit and push DEV changes
+        run: |
+          git config user.name "sdpup"
+          git config user.email "epflswu12@gmail.com"
+          if ! git diff --quiet; then
+            git add .
+            git commit -m "🔧 Update DEV backend image to ${{ env.IMAGE_TAG }}"
+            git push
+            echo "✅ DEV 매니페스트 업데이트 완료"
+          fi
+      
+      - name: Display next steps
+        run: |
+          echo "🎉 DEV 배포 완료!"
+          echo "📋 PROD 배포를 원한다면:"
+          echo "   1. Actions 탭에서 'Build and Push Java Backend to ECR' 워크플로우 선택"
+          echo "   2. 'Run workflow' 클릭"  
+          echo "   3. Image tag에 입력: ${{ env.IMAGE_TAG }}"
+          echo "   4. Environment: prod 선택 후 실행"
 
-   # 4. 현재 시간 태그 (KST)     
-    - name: Get current time (KST)
-      run: echo "IMAGE_TAG=$(TZ='Asia/Seoul' date +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV
-
-
-    - name: Show Current Time
-      run: echo "Current time is $IMAGE_TAG"
-
-    # 5. AWS 로그인
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ap-northeast-2
-
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-
-    # 6. Docker 빌드 & Push
-    - name: Build, tag, and push image to Amazon ECR
-      run: |
-        docker build -t $ECR_REPOSITORY:${{ env.IMAGE_TAG }} .
-        docker tag $ECR_REPOSITORY:${{ env.IMAGE_TAG }} $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
-
-    - name: Checkout manifests repo
-      uses: actions/checkout@v4
-      with:
-        repository: cloud-pjt/enjoy-cd
-        token: ${{ secrets.GH_PAT }}
-        
-      # kustomize 설치 (edit set image 사용)
-    - name: Install kustomize
-      run: |
-        curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-        sudo mv kustomize /usr/local/bin/
-
-      # 대상 환경 선택: push=dev / 수동 클릭=prod
-    - name: Pick target env
-      id: pick
-      run: |
-        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-          echo "ENV=prod" >> $GITHUB_OUTPUT
-        else
-          echo "ENV=dev"  >> $GITHUB_OUTPUT
-        fi
-
-      # 이미지 태그를 Kustomize overlay에 반영
-    - name: Update image tag in overlay
-      run: |
-        cd backend/overlays/${{ steps.pick.outputs.ENV }}
-        kustomize edit set image eclipse-temurin=$ECR_REGISTRY/$BACK_REPO:$IMAGE_TAG
+  promote-to-prod:
+    # PROD 환경: 경량화된 멀티스테이지 빌드
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      ECR_REGISTRY: 255260635764.dkr.ecr.ap-northeast-2.amazonaws.com
+      DEV_REPOSITORY: enjoy-back
+      PROD_REPOSITORY: enjoy-back-prod
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+      
+      - name: Determine image tag to promote
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+            echo "🎯 사용자 지정 태그 사용: $IMAGE_TAG"
+          else
+            IMAGE_TAG=$(aws ecr describe-images \
+              --repository-name $DEV_REPOSITORY \
+              --region ap-northeast-2 \
+              --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageTags[0]' \
+              --output text)
+            echo "🔄 최신 DEV 이미지 태그 자동 선택: $IMAGE_TAG"
+          fi
           
-    - name: Commit and push
-      run: |
-        cd backend
-        git config user.name "sdpup"
-        git config user.email "epflswu12@gmail.com"
-        if ! git diff --quiet; then
-          git commit -am "Update backend image to ${{ env.IMAGE_TAG }}"
-          git push
-        else
-          echo "No changes to commit."
-        fi
-    
-
+          if [ "$IMAGE_TAG" = "null" ] || [ -z "$IMAGE_TAG" ]; then
+            echo "❌ ERROR: DEV 레포지토리에서 유효한 이미지를 찾을 수 없습니다"
+            exit 1
+          fi
+          
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "✅ 승격할 이미지 태그: $IMAGE_TAG"
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+      
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+      
+      # PROD는 경량화된 Dockerfile.prod로 새로 빌드
+      - name: Build optimized PROD image
+        run: |
+          IMAGE_TAG=${{ steps.tag.outputs.IMAGE_TAG }}
+          echo "🏗️ PROD용 경량화 이미지 빌드 중..."
+          
+          docker build -f Dockerfile.prod -t $PROD_REPOSITORY:$IMAGE_TAG .
+          docker tag $PROD_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$PROD_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$PROD_REPOSITORY:$IMAGE_TAG
+          
+          echo "✅ PROD 이미지 빌드 완료:"
+          echo "   경량화된 이미지: $ECR_REGISTRY/$PROD_REPOSITORY:$IMAGE_TAG"
+          
+          # 이미지 크기 비교 (참고용)
+          DEV_SIZE=$(docker images $ECR_REGISTRY/$DEV_REPOSITORY:$IMAGE_TAG --format "table {{.Size}}" | tail -1)
+          PROD_SIZE=$(docker images $ECR_REGISTRY/$PROD_REPOSITORY:$IMAGE_TAG --format "table {{.Size}}" | tail -1)
+          echo "📊 이미지 크기 비교:"
+          echo "   DEV:  $DEV_SIZE (빠른 빌드용)"
+          echo "   PROD: $PROD_SIZE (경량화됨)"
+      
+      - name: Checkout manifests repo
+        uses: actions/checkout@v4
+        with:
+          repository: cloud-pjt/enjoy-cd
+          token: ${{ secrets.GH_PAT }}
+      
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+      
+      - name: Update PROD kustomization
+        run: |
+          IMAGE_TAG=${{ steps.tag.outputs.IMAGE_TAG }}
+          cd backend/overlays/prod
+          kustomize edit set image $ECR_REGISTRY/$PROD_REPOSITORY=$ECR_REGISTRY/$PROD_REPOSITORY:$IMAGE_TAG
+          echo "📝 PROD kustomization 업데이트 완료"
+          cat kustomization.yaml
+      
+      - name: Commit and push PROD changes
+        run: |
+          IMAGE_TAG=${{ steps.tag.outputs.IMAGE_TAG }}
+          git config user.name "sdpup"
+          git config user.email "epflswu12@gmail.com"
+          if ! git diff --quiet; then
+            git add .
+            git commit -m "🚀 Deploy optimized backend $IMAGE_TAG to PROD"
+            git push
+            echo "✅ PROD 매니페스트 업데이트 완료"
+          fi
+      
+      - name: Deployment summary
+        run: |
+          IMAGE_TAG=${{ steps.tag.outputs.IMAGE_TAG }}
+          echo "🎉 PROD 배포 완료!"
+          echo "📦 배포된 이미지: $ECR_REGISTRY/$PROD_REPOSITORY:$IMAGE_TAG"
+          echo "🔧 DEV: 빠른 빌드, 개발 최적화"
+          echo "🚀 PROD: 멀티스테이지, 경량화, 보안 강화"
